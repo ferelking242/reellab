@@ -1,13 +1,13 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
     namespace "com.reel.lab"
     compileSdk 34
-    ndkVersion "27.0.12077973"
+    // ndkVersion non imposé — media_kit_libs_video gère le sien
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -29,7 +29,6 @@ android {
 
     buildTypes {
         release {
-            // Signe avec les clés debug pour les builds sandbox
             signingConfig signingConfigs.debug
             minifyEnabled false
         }

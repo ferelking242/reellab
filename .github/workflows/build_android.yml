@@ -23,9 +23,15 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.29.3'
           channel: stable
           cache: true
+
+      - name: Create android/local.properties
+        run: |
+          echo "flutter.sdk=$(flutter --version --machine | grep '"flutterRoot"' | sed 's/.*"flutterRoot": "\(.*\)".*/\1/')" > android/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
+          cat android/local.properties
 
       - name: Get dependencies
         run: flutter pub get

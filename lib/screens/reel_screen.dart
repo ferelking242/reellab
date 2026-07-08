@@ -575,7 +575,7 @@ class _CreatorCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+          BoxShadow(color: Colors.black.withOpacity(0.04),
               blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
@@ -606,7 +606,7 @@ class _CreatorCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                Container(color: Colors.black.withValues(alpha: 0.20)),
+                Container(color: Colors.black.withOpacity(0.20)),
               ],
             ),
           ),
@@ -804,7 +804,7 @@ class _PourToiTabState extends State<_PourToiTab>
                     begin: Alignment.topCenter,
                     end: const Alignment(0, -0.4),
                     colors: [
-                      Colors.black.withValues(alpha: 0.3),
+                      Colors.black.withOpacity(0.3),
                       Colors.transparent,
                     ],
                   ),
@@ -821,7 +821,7 @@ class _PourToiTabState extends State<_PourToiTab>
                     begin: Alignment.bottomCenter,
                     end: const Alignment(0, 0.25),
                     colors: [
-                      Colors.black.withValues(alpha: 0.72),
+                      Colors.black.withOpacity(0.72),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.55],
