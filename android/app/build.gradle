@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace "com.reel.lab"
-    compileSdk 34
+    compileSdk 35
     // ndkVersion non imposé — media_kit_libs_video gère le sien
 
     compileOptions {
@@ -22,7 +22,7 @@ android {
         applicationId "com.reel.lab"
         // media_kit requiert minSdk 21
         minSdk 21
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0.0"
     }
