@@ -719,7 +719,9 @@ class _PourToiTabState extends State<_PourToiTab>
     _player    = Player();
     _videoCtrl = VideoController(_player);
     _pageCtrl  = PageController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _playItem(0));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _playItem(0);
+    });
   }
 
   @override
