@@ -1,29 +1,14 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'screens/reel_screen.dart';
+import 'package:tiktok_flutter/screens/feed_screen.dart';
+import 'package:tiktok_flutter/service_locator.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const ReelLabApp());
-}
-
-class ReelLabApp extends StatelessWidget {
-  const ReelLabApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ReelLab',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.black,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: const ReelScreen(),
-    );
-  }
+  await Firebase.initializeApp();
+  setup();
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: FeedScreen(),
+  ));
 }
