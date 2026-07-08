@@ -1,9 +1,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:tiktok_flutter/screens/feed_viewmodel.dart';
-import 'package:tiktok_flutter/utils/tik_tok_icons_icons.dart';
 import 'package:get_it/get_it.dart';
+
+// Icônes du dock : mêmes que celles utilisées par Namida (namidaco/namida),
+// dont le "Broken" icon font embarqué est une compilation du set Iconsax
+// (mêmes noms d'icônes : home, search_normal, message, profile_circle...).
+// On réutilise directement le package open-source `iconsax` plutôt que de
+// redistribuer le .ttf compilé de Namida, dont la licence n'autorise pas
+// la réutilisation en dehors de l'app (voir LICENSE de namidaco/namida).
 
 class BottomBar extends StatelessWidget {
   static const double NavigationIconSize = 20.0;
@@ -37,7 +44,7 @@ class BottomBar extends StatelessWidget {
                   : Colors.black,
               borderRadius: BorderRadius.circular(7.0)),
           child: Icon(
-            Icons.add,
+            Iconsax.add,
             color: GetIt.instance<FeedViewModel>().actualScreen == 0
                 ? Colors.black
                 : Colors.white,
@@ -59,8 +66,8 @@ class BottomBar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              menuButton('Home', TikTokIcons.home, 0),
-              menuButton('Search', TikTokIcons.search, 1),
+              menuButton('Home', Iconsax.home, 0),
+              menuButton('Search', Iconsax.search_normal, 1),
               SizedBox(
                 width: 15,
               ),
@@ -68,8 +75,8 @@ class BottomBar extends StatelessWidget {
               SizedBox(
                 width: 15,
               ),
-              menuButton('Messages', TikTokIcons.messages, 2),
-              menuButton('Profile', TikTokIcons.profile, 3)
+              menuButton('Messages', Iconsax.message, 2),
+              menuButton('Profile', Iconsax.profile_circle, 3)
             ],
           ),
           SizedBox(

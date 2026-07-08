@@ -445,6 +445,18 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget feedVideos() {
+    final videoSource = feedViewModel.videoSource;
+    if (videoSource != null &&
+        videoSource.listVideos.isEmpty &&
+        !videoSource.isLoading) {
+      return watchtowerEmptyState(videoSource.error);
+    }
+    if (videoSource != null && videoSource.listVideos.isEmpty) {
+      return Container(
+        color: Colors.black,
+        child: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
     return Stack(
       children: [
         PageView.builder(
@@ -495,6 +507,49 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Shown when Watchtower isn't running or the RedGIFs extension isn't
+  /// enabled — the feed has nothing to source content from in that case.
+  Widget watchtowerEmptyState(String? error) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.wifi_tethering_off, color: Colors.white38, size: 48),
+              SizedBox(height: 16),
+              Text(
+                error ??
+                    'Watchtower n\'est pas accessible sur cet appareil.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  setState(() {});
+                  feedViewModel.retryLoad();
+                },
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 250, 45, 108),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text('Réessayer',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:tiktok_flutter/data/videos_firebase.dart';
+import 'package:tiktok_flutter/data/videos_provider.dart';
 import 'package:stacked/stacked.dart';
 import 'package:video_player/video_player.dart';
 
@@ -13,6 +13,11 @@ class FeedViewModel extends BaseViewModel {
 
   FeedViewModel() {
     videoSource = VideosAPI();
+  }
+
+  Future<void> retryLoad() async {
+    await videoSource?.load();
+    notifyListeners();
   }
 
   changeVideo(index) async {
