@@ -2,27 +2,20 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:video_player/video_player.dart';
 import '../data/mock_data.dart';
 import '../models/reel_item.dart';
 
-// ── ReelScreen ──────────────────────────────────────────────────────────────
-// Sandbox version — identique à Watchtower visuellement.
-// Données : mock_data.dart (remplacer par appels extension lors de l'intégration).
-//
-// Tabs : Explorer | Suivis | Pour toi
-// Pour intégrer dans Watchtower :
-//   1. Remplacer ReelItem par MManga + _parseLink()
-//   2. Remplacer _loadMock*() par getCustomListProvider()
-//   3. Ajouter Source source param sur ReelScreen
-//   4. Remplacer StatefulWidget par ConsumerStatefulWidget
+// ── ReelScreen — sandbox UI identique à Watchtower ──────────────────────────
+// Lecteur : video_player (Flutter team) — remplacé par media_kit (chemin local)
+//           lors de l'intégration dans Watchtower.
+// Données : mock_data.dart → swapper par getCustomListProvider() + Source.
+// Tabs    : Explorer | Suivis | Pour toi
 
 const _kTabExplorer = 0;
 const _kTabSuivis   = 1;
 const _kTabPourToi  = 2;
 
-// ── Media type filter ────────────────────────────────────────────────────────
 enum _MediaType { all, gif, image }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,12 +29,11 @@ String _fmtCount(int n) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ReelScreen — shell principal
+// ReelScreen — shell 3 onglets
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ReelScreen extends StatefulWidget {
   const ReelScreen({super.key});
-
   @override
   State<ReelScreen> createState() => _ReelScreenState();
 }
@@ -85,10 +77,9 @@ class _ReelScreenState extends State<ReelScreen>
     super.dispose();
   }
 
-  Color get _barBg    => _pourToiActive ? Colors.black       : Colors.white;
-  Color get _iconCol  => _pourToiActive ? Colors.white       : Colors.black87;
-  Color get _tabSel   => _pourToiActive ? Colors.white       : Colors.black87;
-  Color get _tabUnsel => _pourToiActive ? Colors.white54     : Colors.black45;
+  Color get _iconCol  => _pourToiActive ? Colors.white   : Colors.black87;
+  Color get _tabSel   => _pourToiActive ? Colors.white   : Colors.black87;
+  Color get _tabUnsel => _pourToiActive ? Colors.white54 : Colors.black45;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +143,6 @@ class _ReelScreenState extends State<ReelScreen>
         IconButton(
           icon: Icon(Icons.search_rounded, color: _iconCol, size: 24),
           onPressed: () {},
-          splashRadius: 20,
           padding: const EdgeInsets.only(right: 6),
         ),
       ],
@@ -180,13 +170,10 @@ class _LiveBadge extends StatelessWidget {
               color: Colors.red,
               borderRadius: BorderRadius.circular(3),
             ),
-            child: const Text(
-              'LIVE',
-              style: TextStyle(
-                color: Colors.white, fontSize: 7,
-                fontWeight: FontWeight.w900, letterSpacing: 0.4,
-              ),
-            ),
+            child: const Text('LIVE',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 7,
+                    fontWeight: FontWeight.w900, letterSpacing: 0.4)),
           ),
         ),
       ],
@@ -195,7 +182,7 @@ class _LiveBadge extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// EXPLORER TAB — masonry grid + GIF/Image toggle + niche chips
+// EXPLORER TAB — masonry + type toggle (Tout/GIF/Image) + niche chips
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _ExplorerTab extends StatefulWidget {
@@ -226,21 +213,19 @@ class _ExplorerTabState extends State<_ExplorerTab>
   void dispose() { _scroll.dispose(); super.dispose(); }
 
   void _onScroll() {
-    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 600) _load();
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 600)
+      _load();
   }
 
-  // ── SANDBOX: remplace getCustomListProvider par mock data ─────────────────
-  // Dans Watchtower: ref.read(getCustomListProvider(source: source, listId: _listId, page: _page).future)
+  // SANDBOX: remplacer par getCustomListProvider(source, listId, page) dans Watchtower
   Future<void> _load() async {
     if (_loading) return;
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 200)); // simule latence réseau
+    await Future.delayed(const Duration(milliseconds: 180));
     if (mounted) {
       setState(() {
-        // En sandbox, on réinitialise toujours avec mockExplorerItems
-        // En prod: addAll(res.list) + pagination
-        _items = List.from(mockExplorerItems);
-        _init  = false;
+        _items   = List.from(mockExplorerItems);
+        _init    = false;
         _loading = false;
       });
     }
@@ -248,22 +233,14 @@ class _ExplorerTabState extends State<_ExplorerTab>
 
   void _selectNiche(int idx) {
     if (idx == _selNiche && _mediaType == _MediaType.all) return;
-    setState(() {
-      _selNiche  = idx;
-      _mediaType = _MediaType.all;
-      _items     = [];
-      _init      = true;
-    });
+    setState(() { _selNiche = idx; _mediaType = _MediaType.all;
+      _items = []; _init = true; });
     _load();
   }
 
   void _selectType(_MediaType t) {
     if (t == _mediaType) return;
-    setState(() {
-      _mediaType = t;
-      _items     = [];
-      _init      = true;
-    });
+    setState(() { _mediaType = t; _items = []; _init = true; });
     _load();
   }
 
@@ -279,26 +256,24 @@ class _ExplorerTabState extends State<_ExplorerTab>
     return CustomScrollView(
       controller: _scroll,
       slivers: [
-        // ── Type filter (Tout / GIF / Image) ────────────────────────
+        // Type filter row
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Row(
-              children: [
-                _TypePill(label: 'Tout',  active: _mediaType == _MediaType.all,
-                    onTap: () => _selectType(_MediaType.all)),
-                const SizedBox(width: 8),
-                _TypePill(label: 'GIF',   active: _mediaType == _MediaType.gif,
-                    onTap: () => _selectType(_MediaType.gif)),
-                const SizedBox(width: 8),
-                _TypePill(label: 'Image', active: _mediaType == _MediaType.image,
-                    onTap: () => _selectType(_MediaType.image)),
-              ],
-            ),
+            child: Row(children: [
+              _TypePill(label: 'Tout',  active: _mediaType == _MediaType.all,
+                  onTap: () => _selectType(_MediaType.all)),
+              const SizedBox(width: 8),
+              _TypePill(label: 'GIF',   active: _mediaType == _MediaType.gif,
+                  onTap: () => _selectType(_MediaType.gif)),
+              const SizedBox(width: 8),
+              _TypePill(label: 'Image', active: _mediaType == _MediaType.image,
+                  onTap: () => _selectType(_MediaType.image)),
+            ]),
           ),
         ),
 
-        // ── Niche chips — seulement quand "Tout" ─────────────────────
+        // Niche chips (Tout seulement)
         if (_mediaType == _MediaType.all)
           SliverToBoxAdapter(
             child: SizedBox(
@@ -322,13 +297,10 @@ class _ExplorerTabState extends State<_ExplorerTab>
                             color: sel ? Colors.black87 : Colors.grey.shade300),
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        mockNiches[i].label,
-                        style: TextStyle(
-                          color: sel ? Colors.white : Colors.black87,
-                          fontSize: 13, fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text(mockNiches[i].label,
+                          style: TextStyle(
+                              color: sel ? Colors.white : Colors.black87,
+                              fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   );
                 },
@@ -352,44 +324,34 @@ class _ExplorerTabState extends State<_ExplorerTab>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _GridColumn(items: left)),
+                  Expanded(child: _GridCol(items: left)),
                   const SizedBox(width: 2),
-                  Expanded(child: _GridColumn(items: right)),
+                  Expanded(child: _GridCol(items: right)),
                 ],
               ),
             ),
           ),
           if (_loading)
             const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
-            ),
+                child: Padding(padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)))),
         ],
       ],
     );
   }
 }
 
-class _GridColumn extends StatelessWidget {
+class _GridCol extends StatelessWidget {
   final List<ReelItem> items;
-  const _GridColumn({required this.items});
-
+  const _GridCol({required this.items});
   @override
-  Widget build(BuildContext context) {
-    return Column(children: items.map((r) => _ExplorerCard(item: r)).toList());
-  }
+  Widget build(BuildContext context) =>
+      Column(children: items.map((r) => _ExplorerCard(item: r)).toList());
 }
 
-// ── Type filter pill ──────────────────────────────────────────────────────────
-
 class _TypePill extends StatelessWidget {
-  final String       label;
-  final bool         active;
-  final VoidCallback onTap;
+  final String label; final bool active; final VoidCallback onTap;
   const _TypePill({required this.label, required this.active, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -400,27 +362,19 @@ class _TypePill extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? Colors.black87 : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: active ? Colors.black87 : Colors.grey.shade300),
+          border: Border.all(color: active ? Colors.black87 : Colors.grey.shade300),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
+        child: Text(label, style: TextStyle(
             color: active ? Colors.white : Colors.black54,
-            fontSize: 13, fontWeight: FontWeight.w600,
-          ),
-        ),
+            fontSize: 13, fontWeight: FontWeight.w600)),
       ),
     );
   }
 }
 
-// ── Explorer card (miniature masonry) ─────────────────────────────────────────
-
 class _ExplorerCard extends StatelessWidget {
   final ReelItem item;
   const _ExplorerCard({required this.item});
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -437,60 +391,35 @@ class _ExplorerCard extends StatelessWidget {
                 aspectRatio: item.aspectRatio,
                 child: item.posterUrl.isNotEmpty
                     ? CachedNetworkImage(
-                        imageUrl: item.posterUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) =>
-                            const ColoredBox(color: Color(0xFFEEEEEE)),
-                        errorWidget: (_, __, ___) =>
-                            const ColoredBox(color: Color(0xFFEEEEEE)),
-                      )
+                        imageUrl: item.posterUrl, fit: BoxFit.cover,
+                        placeholder: (_, __) => const ColoredBox(color: Color(0xFFEEEEEE)),
+                        errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFFEEEEEE)))
                     : const ColoredBox(color: Color(0xFFEEEEEE)),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (item.title.isNotEmpty)
-                      Text(item.title,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600,
-                              color: Colors.black87, height: 1.3),
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          width: 16, height: 16,
-                          decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey.shade300),
-                          child: const Icon(Icons.person,
-                              size: 11, color: Colors.white),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.creator.isNotEmpty
-                                ? '@${item.creator}'
-                                : 'Anonyme',
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.black54),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (item.likes > 0) ...[
-                          const Icon(Icons.favorite_border_rounded,
-                              size: 12, color: Colors.black38),
-                          const SizedBox(width: 2),
-                          Text(_fmtCount(item.likes),
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.black45)),
-                        ],
-                      ],
+                child: Row(children: [
+                  Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle, color: Colors.grey.shade300),
+                    child: const Icon(Icons.person, size: 11, color: Colors.white),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      item.creator.isNotEmpty ? '@${item.creator}' : 'Anonyme',
+                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  if (item.likes > 0) ...[
+                    const Icon(Icons.favorite_border_rounded, size: 12, color: Colors.black38),
+                    const SizedBox(width: 2),
+                    Text(_fmtCount(item.likes),
+                        style: const TextStyle(fontSize: 11, color: Colors.black45)),
                   ],
-                ),
+                ]),
               ),
             ],
           ),
@@ -501,7 +430,7 @@ class _ExplorerCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SUIVIS TAB — créateurs populaires (grille 2 cols)
+// SUIVIS TAB — créateurs (grille 2 cols, bannière floutée)
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _SuivisTab extends StatefulWidget {
@@ -513,10 +442,7 @@ class _SuivisTab extends StatefulWidget {
 class _SuivisTabState extends State<_SuivisTab>
     with AutomaticKeepAliveClientMixin {
   bool _init = true;
-  final _scroll = ScrollController();
-
   @override bool get wantKeepAlive => true;
-
   @override
   void initState() {
     super.initState();
@@ -527,14 +453,9 @@ class _SuivisTabState extends State<_SuivisTab>
   }
 
   @override
-  void dispose() { _scroll.dispose(); super.dispose(); }
-
-  @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (_init) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-    }
+    if (_init) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -546,12 +467,9 @@ class _SuivisTabState extends State<_SuivisTab>
         ),
         Expanded(
           child: GridView.builder(
-            controller: _scroll,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
+              crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10,
               childAspectRatio: 0.68,
             ),
             itemCount: mockCreators.length,
@@ -566,7 +484,6 @@ class _SuivisTabState extends State<_SuivisTab>
 class _CreatorCard extends StatelessWidget {
   final CreatorItem creator;
   const _CreatorCard({required this.creator});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -574,115 +491,96 @@ class _CreatorCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04),
-              blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6, offset: const Offset(0, 2))],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // ── Bannière floutée ─────────────────────────────────────────
+          // Bannière floutée
           SizedBox(
             height: 58,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                creator.bannerUrl.isNotEmpty
-                    ? ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                        child: CachedNetworkImage(
-                          imageUrl: creator.bannerUrl,
-                          fit: BoxFit.cover,
+            child: Stack(fit: StackFit.expand, children: [
+              creator.bannerUrl.isNotEmpty
+                  ? ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                      child: CachedNetworkImage(
+                          imageUrl: creator.bannerUrl, fit: BoxFit.cover,
                           errorWidget: (_, __, ___) =>
-                              Container(color: const Color(0xFF1A1A2E)),
-                        ),
-                      )
-                    : Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF1A1A2E), Color(0xFF2C2C54)],
-                          ),
-                        ),
-                      ),
-                Container(color: Colors.black.withOpacity(0.20)),
-              ],
-            ),
+                              Container(color: const Color(0xFF1A1A2E))))
+                  : Container(decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                          colors: [Color(0xFF1A1A2E), Color(0xFF2C2C54)]))),
+              Container(color: Colors.black.withValues(alpha: 0.20)),
+            ]),
           ),
-          // ── Avatar (chevauche la bannière) ───────────────────────────
+          // Avatar (chevauche la bannière)
           Transform.translate(
             offset: const Offset(0, -28),
             child: Container(
               width: 56, height: 56,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey.shade200,
+                shape: BoxShape.circle, color: Colors.grey.shade200,
                 border: Border.all(color: Colors.white, width: 2.5),
               ),
               clipBehavior: Clip.antiAlias,
               child: creator.avatarUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: creator.avatarUrl,
-                      fit: BoxFit.cover,
+                  ? CachedNetworkImage(imageUrl: creator.avatarUrl, fit: BoxFit.cover,
                       errorWidget: (_, __, ___) =>
-                          const Icon(Icons.person, size: 28, color: Colors.grey),
-                    )
+                          const Icon(Icons.person, size: 28, color: Colors.grey))
                   : const Icon(Icons.person, size: 28, color: Colors.grey),
             ),
           ),
-          // ── Info (compensé par le translate) ────────────────────────
+          // Info (compensé)
           Transform.translate(
             offset: const Offset(0, -20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text('@${creator.username}',
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text('@${creator.username}',
                           style: const TextStyle(fontSize: 13,
                               fontWeight: FontWeight.w700, color: Colors.black87),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center),
-                      ),
-                      if (creator.verified) ...[
-                        const SizedBox(width: 3),
-                        const Icon(Icons.verified_rounded,
-                            size: 14, color: Color(0xFF1DA1F2)),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 3),
-                if (creator.followers > 0)
-                  Text('${_fmtCount(creator.followers)} abonnés',
-                      style: const TextStyle(fontSize: 11, color: Colors.black45)),
-                if (creator.totalGifs > 0)
-                  Text('${creator.totalGifs} GIFs',
-                      style: const TextStyle(fontSize: 11, color: Colors.black38)),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    height: 30,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black87, width: 1.2),
-                      borderRadius: BorderRadius.circular(4),
                     ),
-                    alignment: Alignment.center,
-                    child: const Text('Suivre',
-                        style: TextStyle(fontSize: 13,
-                            fontWeight: FontWeight.w700, color: Colors.black87)),
-                  ),
+                    if (creator.verified) ...[
+                      const SizedBox(width: 3),
+                      const Icon(Icons.verified_rounded,
+                          size: 14, color: Color(0xFF1DA1F2)),
+                    ],
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 3),
+              if (creator.followers > 0)
+                Text('${_fmtCount(creator.followers)} abonnés',
+                    style: const TextStyle(fontSize: 11, color: Colors.black45)),
+              if (creator.totalGifs > 0)
+                Text('${creator.totalGifs} GIFs',
+                    style: const TextStyle(fontSize: 11, color: Colors.black38)),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {},
+                child: Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.black87, width: 1.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text('Suivre',
+                      style: TextStyle(fontSize: 13,
+                          fontWeight: FontWeight.w700, color: Colors.black87)),
+                ),
+              ),
+            ]),
           ),
         ],
       ),
@@ -691,7 +589,7 @@ class _CreatorCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// POUR TOI TAB — player TikTok plein écran (vertical PageView)
+// POUR TOI TAB — player TikTok plein écran (video_player)
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _PourToiTab extends StatefulWidget {
@@ -702,267 +600,213 @@ class _PourToiTab extends StatefulWidget {
 
 class _PourToiTabState extends State<_PourToiTab>
     with AutomaticKeepAliveClientMixin {
-  late final Player          _player;
-  late final VideoController _videoCtrl;
-  late final PageController  _pageCtrl;
-
-  // ── SANDBOX: données mock (remplacer par getCustomListProvider dans Watchtower)
-  final List<ReelItem> _items = List.from(mockReels);
+  VideoPlayerController? _ctrl;
+  late final PageController _pageCtrl;
   int  _curPage = 0;
   bool _paused  = false;
+  bool _ready   = false;
 
   @override bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _player    = Player();
-    _videoCtrl = VideoController(_player);
-    _pageCtrl  = PageController();
+    _pageCtrl = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _playItem(0);
+      if (mounted) _loadItem(0);
     });
   }
 
   @override
   void dispose() {
-    _player.dispose();
+    _ctrl?.dispose();
     _pageCtrl.dispose();
     super.dispose();
   }
 
-  void _playItem(int idx) {
-    if (idx >= _items.length) return;
-    final item = _items[idx];
+  Future<void> _loadItem(int idx) async {
+    if (idx >= mockReels.length) return;
+    final item = mockReels[idx];
     final url  = item.hdUrl.isNotEmpty ? item.hdUrl : item.sdUrl;
     if (url.isEmpty) return;
-    _player
-      ..open(Media(url))
-      ..setPlaylistMode(PlaylistMode.single)
-      ..play();
-    if (mounted) setState(() => _paused = false);
+
+    final prev = _ctrl;
+    final next = VideoPlayerController.networkUrl(Uri.parse(url));
+    if (mounted) setState(() { _ready = false; _ctrl = next; });
+
+    await next.initialize();
+    await prev?.dispose();
+
+    if (!mounted || _ctrl != next) { await next.dispose(); return; }
+    next.setLooping(true);
+    next.play();
+    if (mounted) setState(() { _ready = true; _paused = false; });
   }
 
   void _onPageChanged(int idx) {
-    setState(() => _curPage = idx);
-    _playItem(idx);
+    setState(() { _curPage = idx; _ready = false; });
+    _loadItem(idx);
   }
 
   void _togglePause() {
     setState(() => _paused = !_paused);
-    _paused ? _player.pause() : _player.play();
+    _paused ? _ctrl?.pause() : _ctrl?.play();
   }
-
-  ReelItem? get _current =>
-      _items.isNotEmpty && _curPage < _items.length ? _items[_curPage] : null;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    if (_items.isEmpty) {
-      return const ColoredBox(
-        color: Colors.black,
-        child: Center(child: Text('Aucun contenu',
-            style: TextStyle(color: Colors.white54, fontSize: 15))),
-      );
+    if (mockReels.isEmpty) {
+      return const ColoredBox(color: Colors.black,
+          child: Center(child: Text('Aucun contenu',
+              style: TextStyle(color: Colors.white54, fontSize: 15))));
     }
 
-    final item   = _current;
-    final likes  = item?.likes  ?? 0;
-    final views  = item?.views  ?? 0;
-    final creator = item?.creator ?? '';
-    final title   = item?.title   ?? '';
-    final hasAudio = item?.hasAudio ?? false;
+    final item    = mockReels[_curPage];
+    final likes   = item.likes;
+    final views   = item.views;
+    final creator = item.creator;
+    final title   = item.title;
+    final hasAudio = item.hasAudio;
 
     return ColoredBox(
       color: Colors.black,
-      child: Stack(
-        children: [
-          // ── Feed vertical ────────────────────────────────────────────
-          PageView.builder(
-            controller: _pageCtrl,
-            scrollDirection: Axis.vertical,
-            onPageChanged: _onPageChanged,
-            physics: const PageScrollPhysics(),
-            itemCount: _items.length,
-            itemBuilder: (ctx, i) => _ReelPage(
-              item:            _items[i],
-              videoController: _videoCtrl,
-              isActive:        i == _curPage,
-              paused:          _paused,
-              onTap:           _togglePause,
-            ),
+      child: Stack(children: [
+        // Feed vertical
+        PageView.builder(
+          controller: _pageCtrl,
+          scrollDirection: Axis.vertical,
+          onPageChanged: _onPageChanged,
+          physics: const PageScrollPhysics(),
+          itemCount: mockReels.length,
+          itemBuilder: (ctx, i) => _ReelPage(
+            item:    mockReels[i],
+            ctrl:    i == _curPage ? _ctrl : null,
+            ready:   i == _curPage && _ready,
+            paused:  _paused,
+            onTap:   _togglePause,
           ),
+        ),
 
-          // ── Dégradé haut ────────────────────────────────────────────
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: const Alignment(0, -0.4),
-                    colors: [
-                      Colors.black.withOpacity(0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // ── Dégradé bas ─────────────────────────────────────────────
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: const Alignment(0, 0.25),
-                    colors: [
-                      Colors.black.withOpacity(0.72),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.55],
-                  ),
-                ),
-              ),
-            ),
-          ),
+        // Dégradé haut
+        Positioned.fill(child: IgnorePointer(child: DecoratedBox(
+          decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.topCenter, end: const Alignment(0, -0.4),
+            colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent],
+          )),
+        ))),
 
-          // ── Rail droite ──────────────────────────────────────────────
-          Positioned(
-            right: 10, bottom: 90,
-            child: _TikTokRail(
-              hasAudio: hasAudio,
-              likes:    likes,
-              views:    views,
-            ),
-          ),
+        // Dégradé bas
+        Positioned.fill(child: IgnorePointer(child: DecoratedBox(
+          decoration: BoxDecoration(gradient: LinearGradient(
+            begin: Alignment.bottomCenter, end: const Alignment(0, 0.25),
+            colors: [Colors.black.withValues(alpha: 0.72), Colors.transparent],
+            stops: const [0.0, 0.55],
+          )),
+        ))),
 
-          // ── Info bas ────────────────────────────────────────────────
-          Positioned(
-            left: 14, right: 90, bottom: 20,
-            child: _BottomInfo(creator: creator, title: title),
-          ),
+        // Rail droite
+        Positioned(right: 10, bottom: 90,
+            child: _TikTokRail(hasAudio: hasAudio, likes: likes, views: views)),
 
-          // ── Icône pause ─────────────────────────────────────────────
-          if (_paused)
-            const IgnorePointer(
-              child: Center(
-                child: Icon(Icons.play_arrow_rounded,
-                    color: Colors.white54, size: 80),
-              ),
-            ),
-        ],
-      ),
+        // Info bas
+        Positioned(left: 14, right: 90, bottom: 20,
+            child: _BottomInfo(creator: creator, title: title)),
+
+        // Icône pause
+        if (_paused)
+          const IgnorePointer(child: Center(child: Icon(
+              Icons.play_arrow_rounded, color: Colors.white54, size: 80))),
+      ]),
     );
   }
 }
 
-// ── Page reel (poster + vidéo) ────────────────────────────────────────────────
+// ── Page reel ─────────────────────────────────────────────────────────────────
 
 class _ReelPage extends StatelessWidget {
-  final ReelItem        item;
-  final VideoController videoController;
-  final bool            isActive;
-  final bool            paused;
-  final VoidCallback    onTap;
-  const _ReelPage({
-    required this.item,
-    required this.videoController,
-    required this.isActive,
-    required this.paused,
-    required this.onTap,
-  });
+  final ReelItem             item;
+  final VideoPlayerController? ctrl;
+  final bool                 ready;
+  final bool                 paused;
+  final VoidCallback         onTap;
+  const _ReelPage({required this.item, required this.ctrl, required this.ready,
+      required this.paused, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (item.posterUrl.isNotEmpty)
-            CachedNetworkImage(
+      child: Stack(fit: StackFit.expand, children: [
+        // Poster (toujours visible en arrière-plan)
+        if (item.posterUrl.isNotEmpty)
+          CachedNetworkImage(
               imageUrl: item.posterUrl, fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => const ColoredBox(color: Colors.black),
-            )
-          else
-            const ColoredBox(color: Colors.black),
-          if (isActive)
-            Video(
-              controller: videoController,
-              fit: BoxFit.contain,
-              controls: NoVideoControls,
+              errorWidget: (_, __, ___) => const ColoredBox(color: Colors.black))
+        else
+          const ColoredBox(color: Colors.black),
+        // Vidéo (quand chargée)
+        if (ready && ctrl != null)
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width:  ctrl!.value.size.width,
+              height: ctrl!.value.size.height,
+              child:  VideoPlayer(ctrl!),
             ),
-        ],
-      ),
+          ),
+      ]),
     );
   }
 }
 
-// ── Rail d'actions TikTok (droite) ────────────────────────────────────────────
+// ── Rail d'actions TikTok ─────────────────────────────────────────────────────
 
 class _TikTokRail extends StatelessWidget {
-  final bool hasAudio;
-  final int  likes;
-  final int  views;
+  final bool hasAudio; final int likes; final int views;
   const _TikTokRail({required this.hasAudio, required this.likes, required this.views});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const _AvatarFollow(),
-        const SizedBox(height: 20),
-        _RailAction(icon: Icons.favorite_rounded,
-            count: likes > 0 ? _fmtCount(likes) : null),
-        const SizedBox(height: 16),
-        _RailAction(icon: Icons.chat_bubble_rounded,
-            count: views > 0 ? _fmtCount(views) : null),
-        const SizedBox(height: 16),
-        const _RailAction(icon: Icons.bookmark_rounded),
-        const SizedBox(height: 16),
-        const _RailAction(icon: Icons.reply_rounded, flip: true),
-      ],
-    );
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      const _AvatarFollow(),
+      const SizedBox(height: 20),
+      _RailAction(icon: Icons.favorite_rounded,
+          count: likes > 0 ? _fmtCount(likes) : null),
+      const SizedBox(height: 16),
+      _RailAction(icon: Icons.chat_bubble_rounded,
+          count: views > 0 ? _fmtCount(views) : null),
+      const SizedBox(height: 16),
+      const _RailAction(icon: Icons.bookmark_rounded),
+      const SizedBox(height: 16),
+      const _RailAction(icon: Icons.reply_rounded, flip: true),
+    ]);
   }
 }
 
 class _AvatarFollow extends StatelessWidget {
   const _AvatarFollow();
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 44, height: 52,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
+      child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter,
         children: [
           Container(
             width: 44, height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade800,
-              border: Border.all(color: Colors.white, width: 1.5),
-            ),
+            decoration: BoxDecoration(shape: BoxShape.circle,
+                color: Colors.grey.shade800,
+                border: Border.all(color: Colors.white, width: 1.5)),
             child: const Icon(Icons.person, color: Colors.white, size: 24),
           ),
-          Positioned(
-            bottom: 0,
-            child: Container(
-              width: 20, height: 20,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: Color(0xFFFF3B5C),
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 13),
-            ),
-          ),
+          Positioned(bottom: 0, child: Container(
+            width: 20, height: 20,
+            decoration: const BoxDecoration(
+                shape: BoxShape.circle, color: Color(0xFFFF3B5C)),
+            child: const Icon(Icons.add, color: Colors.white, size: 13),
+          )),
         ],
       ),
     );
@@ -970,43 +814,30 @@ class _AvatarFollow extends StatelessWidget {
 }
 
 class _RailAction extends StatelessWidget {
-  final IconData icon;
-  final String?  count;
-  final bool     flip;
+  final IconData icon; final String? count; final bool flip;
   const _RailAction({required this.icon, this.count, this.flip = false});
-
   @override
   Widget build(BuildContext context) {
     final ico = Icon(icon, color: Colors.white, size: 30);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        flip
-            ? Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0),
-                child: ico,
-              )
-            : ico,
-        if (count != null) ...[
-          const SizedBox(height: 3),
-          Text(count!,
-              style: const TextStyle(
-                color: Colors.white, fontSize: 12,
-                fontWeight: FontWeight.w600,
-                shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
-              )),
-        ],
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      flip
+          ? Transform(alignment: Alignment.center,
+              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0), child: ico)
+          : ico,
+      if (count != null) ...[
+        const SizedBox(height: 3),
+        Text(count!, style: const TextStyle(
+            color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600,
+            shadows: [Shadow(color: Colors.black45, blurRadius: 4)])),
       ],
-    );
+    ]);
   }
 }
 
-// ── Info overlay bas (créateur + description) ──────────────────────────────────
+// ── Info overlay bas ───────────────────────────────────────────────────────────
 
 class _BottomInfo extends StatefulWidget {
-  final String creator;
-  final String title;
+  final String creator; final String title;
   const _BottomInfo({required this.creator, required this.title});
   @override
   State<_BottomInfo> createState() => _BottomInfoState();
@@ -1014,52 +845,41 @@ class _BottomInfo extends StatefulWidget {
 
 class _BottomInfoState extends State<_BottomInfo> {
   bool _expanded = false;
-
   @override
   void didUpdateWidget(_BottomInfo old) {
     super.didUpdateWidget(old);
     if (old.creator != widget.creator) setState(() => _expanded = false);
   }
-
   @override
   Widget build(BuildContext context) {
     const shadow = [Shadow(color: Colors.black54, blurRadius: 8)];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.creator.isNotEmpty)
-          Text('@${widget.creator}',
-              style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700,
-                fontSize: 15, shadows: shadow,
-              )),
-        if (widget.title.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          GestureDetector(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Text.rich(
-              TextSpan(
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 13,
-                    height: 1.35, shadows: shadow),
-                children: [
-                  TextSpan(text: widget.title),
-                  if (!_expanded && widget.title.length > 55)
-                    const TextSpan(
-                      text: '...plus',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700, color: Colors.white70),
-                    ),
-                ],
-              ),
-              maxLines: _expanded ? 6 : 2,
-              overflow:
-                  _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+    return Column(crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, children: [
+      if (widget.creator.isNotEmpty)
+        Text('@${widget.creator}',
+            style: const TextStyle(color: Colors.white,
+                fontWeight: FontWeight.w700, fontSize: 15, shadows: shadow)),
+      if (widget.title.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(color: Colors.white, fontSize: 13,
+                  height: 1.35, shadows: shadow),
+              children: [
+                TextSpan(text: widget.title),
+                if (!_expanded && widget.title.length > 55)
+                  const TextSpan(text: '...plus',
+                      style: TextStyle(fontWeight: FontWeight.w700,
+                          color: Colors.white70)),
+              ],
             ),
+            maxLines: _expanded ? 6 : 2,
+            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
           ),
-        ],
+        ),
       ],
-    );
+    ]);
   }
 }

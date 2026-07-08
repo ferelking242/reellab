@@ -9,10 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Même lecteur que Watchtower (pub.dev stable)
-  media_kit: ^1.1.11
-  media_kit_video: ^1.2.5
-  media_kit_libs_video: ^1.0.5
+  # video_player — Flutter team, v2 embedding garanti, remplacé par media_kit à l'intégration Watchtower
+  video_player: ^2.9.2
   cached_network_image: ^3.3.1
   cupertino_icons: ^1.0.8
 

@@ -29,9 +29,8 @@ jobs:
 
       - name: Create android/local.properties
         run: |
-          echo "flutter.sdk=$(flutter --version --machine | grep '"flutterRoot"' | sed 's/.*"flutterRoot": "\(.*\)".*/\1/')" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
-          cat android/local.properties
 
       - name: Get dependencies
         run: flutter pub get
