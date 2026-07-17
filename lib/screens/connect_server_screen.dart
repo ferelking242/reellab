@@ -336,7 +336,7 @@ class _ConnectServerScreenState extends State<ConnectServerScreen> {
         child: Text(
           text,
           style: TextStyle(
-              color: color ?? Colors.white40,
+              color: color ?? Colors.white.withOpacity(0.40),
               fontSize: 11,
               fontFamily: 'monospace'),
         ),
