@@ -1,11 +1,12 @@
-import 'package:tiktok_flutter/data/video.dart';
-import 'package:tiktok_flutter/data/watchtower_client.dart';
+import 'dart:convert';
 
-/// Replaces the old Firebase/Firestore-backed VideosAPI. The feed is now
-/// sourced live from Watchtower's RedGIFs extension via WatchtowerClient —
-/// see watchtower_client.dart for how the two apps talk to each other.
+import 'package:watchtower_client/watchtower_client.dart' as sdk;
+
+import 'package:tiktok_flutter/data/server_config.dart';
+import 'package:tiktok_flutter/data/video.dart';
+
 class VideosAPI {
-  List<Video> listVideos = <Video>[];
+  List<Video> listVideos = [];
   bool isLoading = false;
   String? error;
   int _page = 1;
@@ -19,25 +20,55 @@ class VideosAPI {
     isLoading = true;
     error = null;
     try {
-      final client = WatchtowerClient.instance;
-      final source = await client.findRedgifsSource();
-      if (source == null) {
+      final config = ServerConfig.instance;
+      if (!config.isConfigured) {
         error =
-            'Extension RedGIFs introuvable. Ouvre Watchtower, active-la dans '
-            'Extensions, puis reviens ici.';
+            'Aucun serveur configuré — configure un serveur pour voir du contenu.';
         listVideos = [];
         return;
       }
-      _sourceId = source.id;
-      final items = await client.getPopular(_sourceId!, page: 1);
-      listVideos = items.map(_toVideo).toList();
-      _page = 1;
-    } on WatchtowerNotRunningException catch (e) {
-      error = 'Watchtower n\'est pas lancé. Ouvre l\'app Watchtower en '
-          'arrière-plan puis réessaie. (${e.message})';
-      listVideos = [];
+
+      final client = sdk.WatchtowerClient(
+        url: config.serverUrl!,
+        apiKey: config.apiKey,
+      );
+
+      try {
+        final ok = await client.ping();
+        if (!ok) {
+          error = 'Serveur inaccessible. Vérifie l\'URL dans Paramètres.';
+          listVideos = [];
+          return;
+        }
+
+        final sources = await client.sources.list();
+        final videoSources =
+            sources.where((s) => s.itemType == sdk.ItemType.video).toList();
+
+        if (videoSources.isEmpty) {
+          error = 'Aucune source vidéo disponible sur ce serveur.';
+          listVideos = [];
+          return;
+        }
+
+        // Prefer Miraculum (id 1900000001) — great multi-lang video source.
+        final source = videoSources.firstWhere(
+          (s) =>
+              s.id == '1900000001' ||
+              s.name.toLowerCase().contains('miraculum'),
+          orElse: () => videoSources.first,
+        );
+        _sourceId = source.id;
+
+        final page = await client.sources.popular(source.id, page: 1);
+        listVideos =
+            page.items.map(_toVideo).where((v) => v.url.isNotEmpty).toList();
+        _page = 1;
+      } finally {
+        client.close();
+      }
     } catch (e) {
-      error = 'Erreur de chargement : $e';
+      error = 'Erreur : $e';
       listVideos = [];
     } finally {
       isLoading = false;
@@ -48,10 +79,20 @@ class VideosAPI {
     if (_sourceId == null || isLoading) return;
     isLoading = true;
     try {
-      _page += 1;
-      final items =
-          await WatchtowerClient.instance.getPopular(_sourceId!, page: _page);
-      listVideos.addAll(items.map(_toVideo));
+      final config = ServerConfig.instance;
+      if (!config.isConfigured) return;
+      final client = sdk.WatchtowerClient(
+        url: config.serverUrl!,
+        apiKey: config.apiKey,
+      );
+      try {
+        _page += 1;
+        final page = await client.sources.popular(_sourceId!, page: _page);
+        listVideos
+            .addAll(page.items.map(_toVideo).where((v) => v.url.isNotEmpty));
+      } finally {
+        client.close();
+      }
     } catch (_) {
       _page -= 1;
     } finally {
@@ -59,17 +100,40 @@ class VideosAPI {
     }
   }
 
-  Video _toVideo(WatchtowerItem item) {
+  /// Converts a [sdk.FeedItem] to a [Video].
+  ///
+  /// Some sources (e.g. Miraculum) encode extra data as a JSON string inside
+  /// [FeedItem.link] — we decode it to extract hd/sd URLs, creator, title, etc.
+  Video _toVideo(sdk.FeedItem item) {
+    Map<String, dynamic> decoded = {};
+    try {
+      final raw = item.link;
+      if (raw.startsWith('{')) {
+        decoded = jsonDecode(raw) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+
+    final hd = (decoded['hd'] as String?) ?? '';
+    final sd = (decoded['sd'] as String?) ?? hd;
+    final url = hd.isNotEmpty
+        ? hd
+        : (sd.isNotEmpty ? sd : (decoded.isEmpty ? item.link : ''));
+    final creator =
+        (decoded['creator'] as String?) ?? item.author ?? item.name;
+    final title = (decoded['title'] as String?) ?? item.name;
+    final poster = (decoded['poster'] as String?) ?? item.imageUrl ?? '';
+    final likes = (decoded['likes'] ?? 0).toString();
+
     return Video(
-      id: item.hd.isNotEmpty ? item.hd : item.sd,
-      user: item.creator.isNotEmpty ? item.creator : item.name,
-      userPic: item.imageUrl,
-      videoTitle: item.title,
-      songName: item.creator,
-      likes: item.likes.isNotEmpty ? item.likes : '0',
+      id: url,
+      user: creator,
+      userPic: poster,
+      videoTitle: title,
+      songName: creator,
+      likes: likes,
       comments: '0',
-      url: item.hd,
-      sdUrl: item.sd,
+      url: url,
+      sdUrl: sd.isNotEmpty ? sd : url,
     );
   }
 }

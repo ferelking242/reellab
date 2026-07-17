@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tiktok_flutter/data/video.dart';
+import 'package:tiktok_flutter/screens/connect_server_screen.dart';
 import 'package:tiktok_flutter/screens/feed_viewmodel.dart';
 import 'package:tiktok_flutter/screens/messages_screen.dart';
 import 'package:tiktok_flutter/screens/profile_screen.dart';
@@ -34,7 +35,6 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     return ViewModelBuilder<FeedViewModel>.reactive(
-        disposeViewModel: false,
         builder: (context, model, child) => videoScreen(),
         viewModelBuilder: () => feedViewModel);
   }
@@ -562,7 +562,9 @@ class _FeedScreenState extends State<FeedScreen> {
       case 2:
         return MessagesScreen();
       case 3:
-        return ProfileScreen();
+        return ConnectServerScreen(
+          onConnected: () => feedViewModel.videoSource?.load(),
+        );
       default:
         return feedVideos();
     }
